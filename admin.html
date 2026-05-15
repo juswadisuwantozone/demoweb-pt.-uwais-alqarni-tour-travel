@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Paket | PT. Uwais Alqarni Tour Travel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0c1210;
+        --card: #141c19;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #e8f0ec;
+        --muted: #8fa399;
+        --accent: #10b981;
+        --gold: #d4af37;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        padding: 2rem clamp(1rem, 4vw, 3rem);
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.35rem;
+      }
+      p.lead {
+        margin: 0 0 1.5rem;
+        color: var(--muted);
+        max-width: 52rem;
+        font-size: 0.92rem;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-bottom: 1.25rem;
+      }
+      button,
+      a.btn {
+        font: inherit;
+        cursor: pointer;
+        border-radius: 0.65rem;
+        border: 1px solid var(--border);
+        padding: 0.55rem 1rem;
+        background: var(--card);
+        color: var(--text);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      button.primary {
+        background: linear-gradient(135deg, #059669, #064e3b);
+        border-color: transparent;
+        font-weight: 600;
+      }
+      button.gold {
+        background: linear-gradient(135deg, var(--gold), #9a7b1e);
+        color: #0a0f0d;
+        border-color: transparent;
+        font-weight: 600;
+      }
+      .grid {
+        display: grid;
+        gap: 1rem;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        padding: 1rem 1.1rem;
+      }
+      label {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-bottom: 0.25rem;
+      }
+      input,
+      textarea {
+        width: 100%;
+        padding: 0.55rem 0.65rem;
+        border-radius: 0.55rem;
+        border: 1px solid var(--border);
+        background: #0a100e;
+        color: var(--text);
+        font: inherit;
+        margin-bottom: 0.55rem;
+      }
+      textarea {
+        min-height: 88px;
+        resize: vertical;
+      }
+      #jsonArea {
+        width: 100%;
+        min-height: 220px;
+        font-family: ui-monospace, monospace;
+        font-size: 0.82rem;
+        padding: 0.75rem;
+        border-radius: 0.65rem;
+        border: 1px solid var(--border);
+        background: #0a100e;
+        color: #c8f5de;
+      }
+      .row-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.35rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Admin Paket (lokal)</h1>
+    <p class="lead">
+      Data paket disimpan di <strong>localStorage</strong> browser ini (kunci <code>uat_packages_v1</code>).
+      Untuk produksi statis, gunakan tombol <strong>Export JSON</strong> lalu salin isi file ke server Anda,
+      atau edit <code>js/packages-data.js</code> langsung. Halaman ini tidak memerlukan server.
+    </p>
+    <div class="toolbar">
+      <button type="button" class="primary" id="btnSave">Simpan ke browser</button>
+      <button type="button" id="btnExport">Export JSON</button>
+      <label style="display: inline-flex; align-items: center; gap: 0.35rem; margin: 0">
+        <span style="font-size: 0.8rem; color: var(--muted)">Import</span>
+        <input type="file" id="fileImport" accept="application/json" />
+      </label>
+      <button type="button" id="btnReset">Reset ke default</button>
+      <a class="btn" href="index.html">← Lihat website</a>
+    </div>
+
+    <div class="card" style="margin-bottom: 1rem">
+      <label for="jsonArea">Editor JSON (array paket)</label>
+      <textarea id="jsonArea" spellcheck="false"></textarea>
+      <div class="row-actions">
+        <button type="button" class="gold" id="btnApplyJson">Terapkan dari kotak JSON</button>
+      </div>
+    </div>
+
+    <div class="grid" id="editorGrid"></div>
+
+    <script src="js/packages-data.js"></script>
+    <script>
+      (function () {
+        var KEY = "uat_packages_v1";
+        var area = document.getElementById("jsonArea");
+        var grid = document.getElementById("editorGrid");
+
+        function load() {
+          try {
+            var raw = localStorage.getItem(KEY);
+            if (raw) {
+              var p = JSON.parse(raw);
+              if (Array.isArray(p) && p.length) return p;
+            }
+          } catch (e) {}
+          return JSON.parse(JSON.stringify(window.PACKAGES_DEFAULT || []));
+        }
+
+        function save(list) {
+          localStorage.setItem(KEY, JSON.stringify(list, null, 2));
+          area.value = JSON.stringify(list, null, 2);
+        }
+
+        function renderForm(list) {
+          grid.innerHTML = "";
+          list.forEach(function (pkg, idx) {
+            var c = document.createElement("div");
+            c.className = "card";
+            c.innerHTML =
+              "<h2 style='margin:0 0 .75rem;font-size:1rem'>Paket #" +
+              (idx + 1) +
+              "</h2>" +
+              "<label>ID (slug)</label><input data-k='id' data-i='" +
+              idx +
+              "' value='" +
+              esc(pkg.id) +
+              "' />" +
+              "<label>Judul</label><input data-k='title' data-i='" +
+              idx +
+              "' value='" +
+              esc(pkg.title) +
+              "' />" +
+              "<label>Subjudul</label><input data-k='subtitle' data-i='" +
+              idx +
+              "' value='" +
+              esc(pkg.subtitle) +
+              "' />" +
+              "<label>Harga mulai</label><input data-k='priceFrom' data-i='" +
+              idx +
+              "' value='" +
+              esc(pkg.priceFrom) +
+              "' />" +
+              "<label>URL gambar</label><input data-k='image' data-i='" +
+              idx +
+              "' value='" +
+              esc(pkg.image) +
+              "' />" +
+              "<label>Fasilitas (satu baris per item)</label><textarea data-k='facilities' data-i='" +
+              idx +
+              "'>" +
+              esc((pkg.facilities || []).join("\n")) +
+              "</textarea>" +
+              "<div class='row-actions'><button type='button' data-del='" +
+              idx +
+              "'>Hapus</button></div>";
+            grid.appendChild(c);
+          });
+          var add = document.createElement("div");
+          add.className = "card";
+          add.innerHTML =
+            "<button type='button' class='primary' id='btnAdd'>+ Tambah paket</button>";
+          grid.appendChild(add);
+          document.getElementById("btnAdd").onclick = function () {
+            list.push({
+              id: "paket-" + (list.length + 1),
+              title: "Paket Baru",
+              subtitle: "Deskripsi singkat",
+              priceFrom: "Rp —",
+              image:
+                "https://images.unsplash.com/photo-1519810235857-af1d13a2b9c3?auto=format&fit=crop&w=1200&q=80",
+              facilities: ["Fasilitas 1", "Fasilitas 2"],
+            });
+            save(list);
+            renderForm(list);
+          };
+          grid.querySelectorAll("input,textarea").forEach(function (el) {
+            el.addEventListener("change", function () {
+              syncFromForm();
+            });
+          });
+          grid.querySelectorAll("button[data-del]").forEach(function (btn) {
+            btn.onclick = function () {
+              var i = +btn.getAttribute("data-del");
+              list.splice(i, 1);
+              save(list);
+              renderForm(load());
+            };
+          });
+        }
+
+        function esc(s) {
+          return String(s || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/\"/g, "&quot;");
+        }
+
+        function syncFromForm() {
+          var cards = grid.querySelectorAll(".card");
+          var out = [];
+          cards.forEach(function (card) {
+            if (!card.querySelector("input[data-k='id']")) return;
+            var idx = card.querySelector("input[data-k='id']").getAttribute("data-i");
+            var o = { id: "", title: "", subtitle: "", priceFrom: "", image: "", facilities: [] };
+            card.querySelectorAll("[data-k]").forEach(function (el) {
+              var k = el.getAttribute("data-k");
+              if (k === "facilities") {
+                o.facilities = el.value
+                  .split("\n")
+                  .map(function (x) {
+                    return x.trim();
+                  })
+                  .filter(Boolean);
+              } else o[k] = el.value.trim();
+            });
+            out.push(o);
+          });
+          save(out);
+        }
+
+        var list = load();
+        save(list);
+        area.value = JSON.stringify(list, null, 2);
+        renderForm(list);
+
+        document.getElementById("btnSave").onclick = function () {
+          syncFromForm();
+          alert("Disimpan di localStorage. Buka / refresh index.html untuk melihat.");
+        };
+        document.getElementById("btnApplyJson").onclick = function () {
+          try {
+            var p = JSON.parse(area.value);
+            if (!Array.isArray(p)) throw new Error("Bukan array");
+            save(p);
+            renderForm(load());
+            alert("JSON diterapkan.");
+          } catch (e) {
+            alert("JSON tidak valid: " + e.message);
+          }
+        };
+        document.getElementById("btnExport").onclick = function () {
+          syncFromForm();
+          var blob = new Blob([area.value], { type: "application/json" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "packages.json";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        };
+        document.getElementById("fileImport").onchange = function (ev) {
+          var f = ev.target.files && ev.target.files[0];
+          if (!f) return;
+          var r = new FileReader();
+          r.onload = function () {
+            try {
+              area.value = r.result;
+              var p = JSON.parse(r.result);
+              if (!Array.isArray(p)) throw new Error("Bukan array");
+              save(p);
+              renderForm(load());
+              alert("Import berhasil.");
+            } catch (e) {
+              alert("Gagal import: " + e.message);
+            }
+          };
+          r.readAsText(f);
+        };
+        document.getElementById("btnReset").onclick = function () {
+          if (!confirm("Hapus data lokal dan kembalikan default?")) return;
+          localStorage.removeItem(KEY);
+          var d = JSON.parse(JSON.stringify(window.PACKAGES_DEFAULT || []));
+          save(d);
+          renderForm(load());
+        };
+      })();
+    </script>
+  </body>
+</html>
